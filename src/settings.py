@@ -1,4 +1,4 @@
-# These are the algorithms that the Analyzer will run. To add a new algorithm,
+# These are the algorithms that the crucible will run. To add a new algorithm,
 # you must both define the algorithm in algorithms.py and add its name here.
 ALGORITHMS = [
                 'first_hour_average',
@@ -10,4 +10,5 @@ ALGORITHMS = [
                 'histogram_bins',
                 'median_absolute_deviation',
                 'ks_test',
+                'detect_drop_off_cliff',
              ]

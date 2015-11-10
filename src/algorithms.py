@@ -203,6 +203,73 @@ def ks_test(timeseries):
 
     return False
 
+def detect_drop_off_cliff(timeseries):
+    """
+    A timeseries is anomalous if the average of the last ten datapoints is <trigger>
+    times greater than the last data point.  This algorithm is most suited to
+    timeseries with most datapoints being > 100 (e.g high rate).  The arbitrary
+    <trigger> values become more noisy with lower value datapoints, but it still
+    matches drops off cliffs.
+    """
+
+    if len(timeseries) < 21:
+        return False
+
+    int_end_timestamp = int(timeseries[-1][0])
+    # Determine resolution of the data set
+    int_second_last_end_timestamp = int(timeseries[-2][0])
+    resolution = int_end_timestamp - int_second_last_end_timestamp
+    ten_data_point_seconds = resolution * 10
+    ten_datapoints_ago = int_end_timestamp - ten_data_point_seconds
+
+    ten_datapoint_array = scipy.array([x[1] for x in timeseries if x[0] <= int_end_timestamp and x[0] > ten_datapoints_ago])
+    ten_datapoint_array_len = len(ten_datapoint_array)
+    if ten_datapoint_array_len > 3:
+        # DO NOT handle if negative integers in range, where is the bottom of
+        # of the cliff if a range goes negative? The maths does not work either
+        ten_datapoint_min_value = np.amin(ten_datapoint_array)
+        if ten_datapoint_min_value < 0:
+            return False
+        ten_datapoint_max_value = np.amax(ten_datapoint_array)
+        if ten_datapoint_max_value < 10:
+            return False
+        ten_datapoint_array_sum = np.sum(ten_datapoint_array)
+        ten_datapoint_value = int(ten_datapoint_array[-1])
+        ten_datapoint_average = ten_datapoint_array_sum / ten_datapoint_array_len
+        ten_datapoint_value = int(ten_datapoint_array[-1])
+        ten_datapoint_max_value = np.amax(ten_datapoint_array)
+        if ten_datapoint_max_value == 0:
+            return False
+        if ten_datapoint_max_value < 101:
+            trigger = 15
+        if ten_datapoint_max_value < 20:
+            trigger = ten_datapoint_average / 2
+        if ten_datapoint_max_value < 1:
+            trigger = 0.1
+        if ten_datapoint_max_value > 100:
+            trigger = 100
+        if ten_datapoint_value == 0:
+            # Cannot divide by 0, so set to 0.1 to prevent error
+            ten_datapoint_value = 0.1
+        if ten_datapoint_value == 1:
+            trigger = 1
+        if ten_datapoint_value == 1 and ten_datapoint_max_value < 10:
+            trigger = 0.1
+        if ten_datapoint_value == 0.1 and ten_datapoint_average < 1 and ten_datapoint_array_sum < 7:
+            trigger = 7
+        # Filter low rate and variable between 0 and 100 metrics
+        if ten_datapoint_value <= 1 and ten_datapoint_array_sum < 100 and ten_datapoint_array_sum > 1:
+            all_datapoints_array = scipy.array([x[1] for x in timeseries])
+            all_datapoints_max_value = np.amax(all_datapoints_array)
+            if all_datapoints_max_value < 100:
+                return False
+        ten_datapoint_result = ten_datapoint_average / ten_datapoint_value
+        if int(ten_datapoint_result) > trigger:
+            return True
+
+    return False
+
+
 def run_algorithms(timeseries, timeseries_name):
     """
     Iteratively run algorithms.
