@@ -52,7 +52,7 @@ The example timeseries used (detect_drop_off_cliff.ts.json) is a real world data
 
 Analysing this same timeseries with each standard crucible (skyline) algorithm 
 highlights that no algorithm actually detects the drop off cliff pattern towards 
-the end of the timeseries.
+the end of the timeseries, apart from a new experimental `detect_drop_off_cliff`
 
 ### detect_drop_off_cliff - __DETECTED__
 
