@@ -18,6 +18,7 @@ timeseries is anomalous or not.
 To add an algorithm, define it here, and add its name to settings.ALGORITHMS.
 """
 
+
 def tail_avg(timeseries):
     """
     This is a utility function used to calculate the average of the last three
@@ -30,6 +31,7 @@ def tail_avg(timeseries):
         return t
     except IndexError:
         return timeseries[-1][1]
+
 
 def median_absolute_deviation(timeseries):
     """
@@ -54,6 +56,7 @@ def median_absolute_deviation(timeseries):
     if test_statistic > 6:
         return True
 
+
 def grubbs(timeseries):
     """
     A timeseries is anomalous if the Z score is greater than the Grubb's score.
@@ -65,11 +68,12 @@ def grubbs(timeseries):
     tail_average = tail_avg(timeseries)
     z_score = (tail_average - mean) / stdDev
     len_series = len(series)
-    threshold = scipy.stats.t.isf(.05 / (2 * len_series) , len_series - 2)
+    threshold = scipy.stats.t.isf(.05 / (2 * len_series), len_series - 2)
     threshold_squared = threshold * threshold
     grubbs_score = ((len_series - 1) / np.sqrt(len_series)) * np.sqrt(threshold_squared / (len_series - 2 + threshold_squared))
 
     return z_score > grubbs_score
+
 
 def first_hour_average(timeseries):
     """
@@ -85,6 +89,7 @@ def first_hour_average(timeseries):
 
     return abs(t - mean) > 3 * stdDev
 
+
 def stddev_from_average(timeseries):
     """
     A timeseries is anomalous if the absolute value of the average of the latest
@@ -99,6 +104,7 @@ def stddev_from_average(timeseries):
 
     return abs(t - mean) > 3 * stdDev
 
+
 def stddev_from_moving_average(timeseries):
     """
     A timeseries is anomalous if the absolute value of the average of the latest
@@ -111,6 +117,7 @@ def stddev_from_moving_average(timeseries):
     stdDev = pandas.stats.moments.ewmstd(series, com=50)
 
     return abs(series.iget(-1) - expAverage.iget(-1)) > 3 * stdDev.iget(-1)
+
 
 def mean_subtraction_cumulation(timeseries):
     """
@@ -126,6 +133,7 @@ def mean_subtraction_cumulation(timeseries):
 
     return abs(series.iget(-1)) > 3 * stdDev
 
+
 def least_squares(timeseries):
     """
     A timeseries is anomalous if the average of the last three datapoints
@@ -140,17 +148,18 @@ def least_squares(timeseries):
     m, c = np.linalg.lstsq(A, y)[0]
     errors = []
     for i, value in enumerate(y):
-    	projected = m * x[i] + c
-    	error = value - projected
-    	errors.append(error)
+        projected = m * x[i] + c
+        error = value - projected
+        errors.append(error)
 
     if len(errors) < 3:
-    	return False
+        return False
 
     std_dev = scipy.std(errors)
     t = (errors[-1] + errors[-2] + errors[-3]) / 3
 
     return abs(t) > std_dev * 3 and round(std_dev) != 0 and round(t) != 0
+
 
 def histogram_bins(timeseries):
     """
@@ -178,6 +187,7 @@ def histogram_bins(timeseries):
 
     return False
 
+
 def ks_test(timeseries):
     """
     A timeseries is anomalous if 2 sample Kolmogorov-Smirnov test indicates
@@ -194,14 +204,15 @@ def ks_test(timeseries):
     if reference.size < 20 or probe.size < 20:
         return False
 
-    ks_d,ks_p_value = scipy.stats.ks_2samp(reference, probe)
+    ks_d, ks_p_value = scipy.stats.ks_2samp(reference, probe)
 
     if ks_p_value < 0.05 and ks_d > 0.5:
         adf = sm.tsa.stattools.adfuller(reference, 10)
-        if  adf[1] < 0.05:
+        if adf[1] < 0.05:
             return True
 
     return False
+
 
 def detect_drop_off_cliff(timeseries):
     """
@@ -224,28 +235,59 @@ def detect_drop_off_cliff(timeseries):
 
     ten_datapoint_array = scipy.array([x[1] for x in timeseries if x[0] <= int_end_timestamp and x[0] > ten_datapoints_ago])
     ten_datapoint_array_len = len(ten_datapoint_array)
+
     if ten_datapoint_array_len > 3:
-        # DO NOT handle if negative integers in range, where is the bottom of
-        # of the cliff if a range goes negative? The maths does not work either
+
         ten_datapoint_min_value = np.amin(ten_datapoint_array)
+
+        # DO NOT handle if negative integers are in the range, where is the
+        # bottom of the cliff if a range goes negative?  Testing with a noisy
+        # sine wave timeseries that had a drop off cliff introduced to the
+        # postive data side, proved that this algorithm does not work on timeseries
+        # with data values in the negative range
         if ten_datapoint_min_value < 0:
             return False
+
         ten_datapoint_max_value = np.amax(ten_datapoint_array)
-        if ten_datapoint_max_value < 10:
+
+        # The algorithm should have already fired in 10 datapoints if the
+        # timeseries dropped off a cliff, these are all zero
+        if ten_datapoint_max_value == 0:
             return False
+
+        # If the lowest is equal to the highest, no drop off cliff
+        if ten_datapoint_min_value == ten_datapoint_max_value:
+            return False
+
         ten_datapoint_array_sum = np.sum(ten_datapoint_array)
         ten_datapoint_value = int(ten_datapoint_array[-1])
         ten_datapoint_average = ten_datapoint_array_sum / ten_datapoint_array_len
         ten_datapoint_value = int(ten_datapoint_array[-1])
-        ten_datapoint_max_value = np.amax(ten_datapoint_array)
+
+        # if a timeseries goes up and down a lot and falls off a cliff frequently
+        # it is normal, not anomalous
+        number_of_similar_datapoints = len(np.where(ten_datapoint_array <= ten_datapoint_min_value))
+
+        # Detect once only - to make this useful and not noisy the first one
+        # would have already fired and detected the drop
+        if number_of_similar_datapoints > 2:
+            return False
+
+        # evaluate against 20 datapoints as well, reduces chatter on peaky ones
+        # tested with 60 as well and 20 is sufficient to filter noise
+        twenty_data_point_seconds = resolution * 20
+        twenty_datapoints_ago = int_end_timestamp - twenty_data_point_seconds
+        twenty_datapoint_array = scipy.array([x[1] for x in timeseries if x[0] <= int_end_timestamp and x[0] > twenty_datapoints_ago])
+        number_of_similar_datapoints_in_twenty = len(np.where(twenty_datapoint_array <= ten_datapoint_min_value))
+        if number_of_similar_datapoints_in_twenty > 2:
+            return False
+
         if ten_datapoint_max_value == 0:
             return False
         if ten_datapoint_max_value < 101:
             trigger = 15
         if ten_datapoint_max_value < 20:
             trigger = ten_datapoint_average / 2
-        if ten_datapoint_max_value < 1:
-            trigger = 0.1
         if ten_datapoint_max_value > 100:
             trigger = 100
         if ten_datapoint_value == 0:
@@ -257,12 +299,7 @@ def detect_drop_off_cliff(timeseries):
             trigger = 0.1
         if ten_datapoint_value == 0.1 and ten_datapoint_average < 1 and ten_datapoint_array_sum < 7:
             trigger = 7
-        # Filter low rate and variable between 0 and 100 metrics
-        if ten_datapoint_value <= 1 and ten_datapoint_array_sum < 100 and ten_datapoint_array_sum > 1:
-            all_datapoints_array = scipy.array([x[1] for x in timeseries])
-            all_datapoints_max_value = np.amax(all_datapoints_array)
-            if all_datapoints_max_value < 100:
-                return False
+
         ten_datapoint_result = ten_datapoint_average / ten_datapoint_value
         if int(ten_datapoint_result) > trigger:
             return True
@@ -274,7 +311,7 @@ def run_algorithms(timeseries, timeseries_name):
     """
     Iteratively run algorithms.
     """
-    __results__ = abspath(join(dirname( __file__ ), '..', 'results'))
+    __results__ = abspath(join(dirname(__file__), '..', 'results'))
 
     try:
         for algorithm in ALGORITHMS:
@@ -286,12 +323,12 @@ def run_algorithms(timeseries, timeseries_name):
             for index in range(10, len(timeseries)):
                 sliced = timeseries[:index]
                 anomaly = globals()[algorithm](sliced)
-                
+
                 # Point out the datapoint if it's anomalous
                 if anomaly:
                     plt.plot([index], [sliced[-1][1]], 'ro')
-                        
-            plt.savefig(__results__ + "/"+ algorithm + "-" + timeseries_name + ".png")
+
+            plt.savefig(__results__ + "/" + algorithm + "-" + timeseries_name + ".png")
             print algorithm
     except:
         print("Algorithm error: " + traceback.format_exc())

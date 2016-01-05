@@ -94,3 +94,17 @@ the end of the timeseries, apart from a new experimental `detect_drop_off_cliff`
 
 ![stddev_from_moving_average](stddev_from_moving_average.detect_drop_off_cliff.ts.json.png?raw=true)
 
+## detect_drop_off_cliff in lower ranges
+
+### detect_drop_off_cliff - working in the 100 range with skyline/boundary
+
+skyline/boundary alert on a not so high range timeseries in the 100 range.
+
+![detect_drop_off_cliff.in.the.100.range.boundary.alert](detect_drop_off_cliff.in.the.100.range.boundary.alert.png?raw=true)
+
+The same timeseries hours later, the drop off cliff can be seen at ~02h12 and 
+the later timeseries the it is a variable data set.
+
+![detect_drop_off_cliff.in.the.100.range.hours.later.comparison](detect_drop_off_cliff.in.the.100.range.hours.later.comparison.png?raw=true)
+
+

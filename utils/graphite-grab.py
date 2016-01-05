@@ -10,7 +10,7 @@ from os.path import dirname, join, abspath
 url = sys.argv[1]
 
 if "&format=json" not in url:
-	url += "&format=json"
+    url += "&format=json"
 
 r = requests.get(url)
 js = r.json()
@@ -19,15 +19,15 @@ datapoints = js[0]['datapoints']
 converted = []
 for datapoint in datapoints:
     try:
-    	new_datapoint = [float(datapoint[1]), float(datapoint[0])]
-    	converted.append(new_datapoint)
+        new_datapoint = [float(datapoint[1]), float(datapoint[0])]
+        converted.append(new_datapoint)
     except:
         continue
 
 parsed = urlparse.urlparse(url)
 target = urlparse.parse_qs(parsed.query)['target'][0]
 
-data_folder = abspath(join(dirname( __file__ ), '..', 'data'))
+data_folder = abspath(join(dirname(__file__), '..', 'data'))
 
 with open(data_folder + "/" + target + '.json', 'w') as f:
     f.write(json.dumps(converted))
