@@ -7,7 +7,7 @@ timeseries that "drops off a cliff".  Further to this in the skyline context,
 even if one of the standard alogrithms did trigger a drop off cliff, it may not
 be considered anomalous in the context of `CONSENSUS`.
 
-## How it works - EXPERIMENTAL
+## How it works
 
 A timeseries is anomalous if the average of the last ten datapoints is `<trigger>`
 times greater than the last data point.  This algorithm is most suited to
